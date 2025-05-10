@@ -1,26 +1,23 @@
-FROM golang:1.24.2-alpine AS build
-ARG VERSION="dev"
+FROM golang:1.21-bullseye AS builder
 
-# Set the working directory
-WORKDIR /build
+WORKDIR /app
+COPY . .
 
-# Install git
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add git
+RUN apt-get update && apt-get install -y git && \
+    go mod tidy && \
+    go build -o github-mcp-server ./cmd/github-mcp-server
 
-# Build the server
-# go build automatically download required module dependencies to /go/pkg/mod
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=bind,target=. \
-    CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=${VERSION} -X main.commit=$(git rev-parse HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    -o /bin/github-mcp-server cmd/github-mcp-server/main.go
+FROM python:3.11-slim
 
-# Make a stage to run the app
-FROM gcr.io/distroless/base-debian12
-# Set the working directory
-WORKDIR /server
-# Copy the binary from the build stage
-COPY --from=build /bin/github-mcp-server .
-# Command to run the server
-CMD ["./github-mcp-server", "stdio"]
+WORKDIR /app
+
+COPY --from=builder /app/github-mcp-server /usr/local/bin/github-mcp-server
+COPY mcp_sse_proxy.py ./mcp_sse_proxy.py
+
+RUN pip install --no-cache-dir fastapi uvicorn
+
+EXPOSE 3000
+
+ENV GITHUB_PERSONAL_ACCESS_TOKEN=changeme
+
+CMD ["uvicorn", "mcp_sse_proxy:app", "--host", "0.0.0.0", "--port", "3000"]
