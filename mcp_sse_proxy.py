@@ -26,7 +26,10 @@ async def read_stdout():
     while True:
         line = await asyncio.to_thread(mcp_proc.stdout.readline)
         if line:
-            await message_queue.put(line.strip())
+            clean = line.strip()
+            # Envia apenas JSON válido para o SSE
+            if clean.startswith("{"):
+                await message_queue.put(clean)
 
 @app.on_event("startup")
 async def startup_event():
@@ -40,7 +43,6 @@ async def sse(request: Request):
                 break
             try:
                 message = await asyncio.wait_for(message_queue.get(), timeout=5)
-                # Log de debug da resposta enviada ao cliente
                 print(f"🧪 Enviando SSE: {message}")
                 yield f"data: {message}\n\n"
             except asyncio.TimeoutError:
