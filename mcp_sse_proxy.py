@@ -7,8 +7,10 @@ import json
 
 app = FastAPI()
 
+# Caminho absoluto do binário já compilado
 BINARY_PATH = "/usr/local/bin/github-mcp-server"
 
+# Inicializa o processo MCP Server em stdio
 mcp_proc = subprocess.Popen(
     [BINARY_PATH, "stdio"],
     stdin=subprocess.PIPE,
