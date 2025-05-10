@@ -27,9 +27,7 @@ async def sse(request: Request):
             line = mcp_proc.stdout.readline()
             if line:
                 print(f"📡 MCP respondeu: {line.strip()}")
-                yield f"data: {line.strip()}
-
-"
+                yield f"data: {line.strip()}\n\n"
             await asyncio.sleep(0.1)
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
