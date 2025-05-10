@@ -28,7 +28,6 @@ async def sse(request: Request):
                 break
             line = mcp_proc.stdout.readline()
             if line:
-                print(f"📡 MCP respondeu: {line.strip()}")
                 yield f"data: {line.strip()}\n\n"
             await asyncio.sleep(0.1)
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -52,7 +51,6 @@ async def run_tool(request: Request):
         }
     }
 
-    print(f"🚀 Enviando comando para MCP: {cmd}")
     try:
         mcp_proc.stdin.write(json.dumps(cmd) + "\n")
         mcp_proc.stdin.flush()
