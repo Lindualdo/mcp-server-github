@@ -40,6 +40,8 @@ async def sse(request: Request):
                 break
             try:
                 message = await asyncio.wait_for(message_queue.get(), timeout=5)
+                # Log de debug da resposta enviada ao cliente
+                print(f"🧪 Enviando SSE: {message}")
                 yield f"data: {message}\n\n"
             except asyncio.TimeoutError:
                 continue
