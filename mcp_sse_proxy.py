@@ -6,11 +6,12 @@ import os
 import json
 
 app = FastAPI()
+message_queue = asyncio.Queue()
 
-# Caminho absoluto do binário já compilado
+# Caminho do binário MCP compilado
 BINARY_PATH = "/usr/local/bin/github-mcp-server"
 
-# Inicializa o processo MCP Server em stdio
+# Inicia o processo do MCP Server
 mcp_proc = subprocess.Popen(
     [BINARY_PATH, "stdio"],
     stdin=subprocess.PIPE,
@@ -20,16 +21,28 @@ mcp_proc = subprocess.Popen(
     env={**os.environ, "GITHUB_TOOLSETS": "all"}
 )
 
+# Leitura assíncrona do MCP stdout
+async def read_stdout():
+    while True:
+        line = await asyncio.to_thread(mcp_proc.stdout.readline)
+        if line:
+            await message_queue.put(line.strip())
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(read_stdout())
+
 @app.get("/sse")
 async def sse(request: Request):
     async def event_generator():
         while True:
             if await request.is_disconnected():
                 break
-            line = mcp_proc.stdout.readline()
-            if line:
-                yield f"data: {line.strip()}\n\n"
-            await asyncio.sleep(0.1)
+            try:
+                message = await asyncio.wait_for(message_queue.get(), timeout=5)
+                yield f"data: {message}\n\n"
+            except asyncio.TimeoutError:
+                continue
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.post("/tool/run")
